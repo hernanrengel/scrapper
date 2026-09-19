@@ -1,10 +1,11 @@
 from unittest.mock import patch
 
 import pytest
+from celery.exceptions import SoftTimeLimitExceeded
 
 from scraper.fetching import FetchError
 from scraper.models import Link, Status
-from scraper.tasks import scrape_page
+from scraper.tasks import enqueue_scrape, scrape_page
 from scraper.tests.factories import LinkFactory, PageFactory
 
 pytestmark = pytest.mark.django_db
@@ -102,3 +103,59 @@ def test_scrape_page_runs_synchronously_via_delay_in_eager_mode():
     assert result.successful()
     page.refresh_from_db()
     assert page.status == Status.SUCCESS
+
+
+def test_scrape_page_marks_failed_on_soft_time_limit_exceeded():
+    page = PageFactory(status=Status.PENDING)
+
+    with patch("scraper.tasks.fetch_html", side_effect=SoftTimeLimitExceeded()):
+        scrape_page(page.id)
+
+    page.refresh_from_db()
+    assert page.status == Status.FAILED
+    assert page.error_message == "Scrape timed out"
+    transitions = list(
+        page.status_events.order_by("occurred_at").values_list("from_status", "to_status")
+    )
+    assert transitions == [
+        (Status.PENDING, Status.IN_PROGRESS),
+        (Status.IN_PROGRESS, Status.FAILED),
+    ]
+
+
+def test_enqueue_scrape_stores_celery_task_id_on_success():
+    page = PageFactory(status=Status.PENDING)
+
+    with _mock_scrape():
+        enqueue_scrape(page.id)
+
+    page.refresh_from_db()
+    assert page.celery_task_id
+    assert page.status == Status.SUCCESS
+
+
+def test_enqueue_scrape_marks_page_failed_if_delay_itself_fails():
+    page = PageFactory(status=Status.PENDING)
+
+    with patch("scraper.tasks.scrape_page.delay", side_effect=RuntimeError("redis is down")):
+        enqueue_scrape(page.id)
+
+    page.refresh_from_db()
+    assert page.status == Status.FAILED
+    assert page.error_message == "redis is down"
+    assert list(page.status_events.values_list("from_status", "to_status")) == [
+        (Status.PENDING, Status.FAILED)
+    ]
+
+
+def test_enqueue_scrape_is_a_noop_if_page_already_moved_on():
+    # Guards the case where the task somehow already ran (or the page was
+    # cancelled) by the time the enqueue-failure handler would run.
+    page = PageFactory(status=Status.SUCCESS)
+
+    with patch("scraper.tasks.scrape_page.delay", side_effect=RuntimeError("redis is down")):
+        enqueue_scrape(page.id)
+
+    page.refresh_from_db()
+    assert page.status == Status.SUCCESS
+    assert page.status_events.count() == 0

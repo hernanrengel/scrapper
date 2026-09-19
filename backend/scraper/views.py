@@ -16,7 +16,7 @@ from scraper.serializers import (
     PageStatusEventSerializer,
     PageSummarySerializer,
 )
-from scraper.tasks import scrape_page
+from scraper.tasks import enqueue_scrape
 
 
 def _find_existing_page(normalized_url):
@@ -59,7 +59,7 @@ class PageListCreateView(APIView):
                 PageStatusEvent.objects.create(
                     page=page, from_status=None, to_status=Status.PENDING
                 )
-                transaction.on_commit(lambda: scrape_page.delay(page.id))
+                transaction.on_commit(lambda: enqueue_scrape(page.id))
         except IntegrityError:
             return _duplicate_response(_find_existing_page(normalized))
 
