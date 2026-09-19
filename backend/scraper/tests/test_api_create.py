@@ -16,7 +16,12 @@ def client():
 
 
 def test_create_page_happy_path(client, django_capture_on_commit_callbacks):
-    with django_capture_on_commit_callbacks(execute=True):
+    scrape = patch.multiple(
+        "scraper.tasks",
+        fetch_html=lambda url: (url, b"<html></html>"),
+        parse_page=lambda base_url, content: ("Example", []),
+    )
+    with scrape, django_capture_on_commit_callbacks(execute=True):
         response = client.post("/api/v1/pages/", {"url": "https://example.com/"})
 
     assert response.status_code == 201
@@ -24,8 +29,8 @@ def test_create_page_happy_path(client, django_capture_on_commit_callbacks):
 
     page = Page.objects.get(id=response.data["id"])
     assert page.normalized_url == "https://example.com/"
-    # The stub task ran synchronously (eager mode + captured on_commit), so by
-    # now all 3 transitions already happened even though the response above
+    # The task ran synchronously (eager mode + captured on_commit), so by now
+    # all 3 transitions already happened even though the response above
     # reported the pre-task "pending" snapshot.
     transitions = list(
         page.status_events.order_by("occurred_at").values_list("from_status", "to_status")
@@ -37,6 +42,7 @@ def test_create_page_happy_path(client, django_capture_on_commit_callbacks):
     ]
     page.refresh_from_db()
     assert page.status == Status.SUCCESS
+    assert page.title == "Example"
 
 
 def test_create_page_duplicate_url_returns_409(client):
