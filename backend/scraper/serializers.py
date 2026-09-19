@@ -1,6 +1,19 @@
+from django.core.validators import URLValidator
 from rest_framework import serializers
 
 from scraper.models import Link, Page, PageStatusEvent
+
+
+class PageCreateSerializer(serializers.Serializer):
+    url = serializers.CharField(validators=[URLValidator(schemes=["http", "https"])])
+
+
+class PageSummarySerializer(serializers.ModelSerializer):
+    links_count = serializers.IntegerField(read_only=True)
+
+    class Meta:
+        model = Page
+        fields = ["id", "title", "status", "links_count"]
 
 
 class PageListSerializer(serializers.ModelSerializer):
