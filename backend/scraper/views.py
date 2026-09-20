@@ -69,6 +69,36 @@ class PageListCreateView(APIView):
         )
 
 
+class PageRescrapeView(APIView):
+    def post(self, request, pk):
+        page = get_object_or_404(Page, pk=pk)
+        previous_status = page.status
+
+        with transaction.atomic():
+            updated = (
+                Page.objects.filter(id=pk, status=previous_status)
+                .exclude(status=Status.IN_PROGRESS)
+                .update(
+                    status=Status.PENDING,
+                    error_message=None,
+                    started_at=None,
+                    finished_at=None,
+                    celery_task_id=None,
+                )
+            )
+            if not updated:
+                return Response(
+                    {"detail": "This page cannot be rescraped right now."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            PageStatusEvent.objects.create(
+                page_id=pk, from_status=previous_status, to_status=Status.PENDING
+            )
+            transaction.on_commit(lambda: enqueue_scrape(pk))
+
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+
 class PageDetailView(APIView):
     def get(self, request, pk):
         page = get_object_or_404(Page, pk=pk)

@@ -4,6 +4,7 @@ from scraper.views import (
     PageDetailView,
     PageLinksView,
     PageListCreateView,
+    PageRescrapeView,
     PageStatusEventsView,
 )
 
@@ -15,5 +16,10 @@ urlpatterns = [
         "pages/<uuid:pk>/status-events/",
         PageStatusEventsView.as_view(),
         name="page-status-events",
+    ),
+    path(
+        "pages/<uuid:pk>/rescrape/",
+        PageRescrapeView.as_view(),
+        name="page-rescrape",
     ),
 ]
