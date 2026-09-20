@@ -7,6 +7,73 @@ The frontend lists every page that's been scraped, with the number of links
 found on each, its status, and lets you drill into a page to see its links
 and its status history.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![List view](screens/list-view.png) List view: status badge and link count per page. | ![A page mid-scrape](screens/list-view-in-progress.png) A page mid-scrape shows as In progress; only Cancel is available while pending/in progress. |
+| ![Detail view](screens/detail-view.png) Detail view: a page's links. Note the escaped `<span>`/`<img>` markup in the Name column, since scraped HTML is rendered as text, never injected. | ![Insights dialog](screens/insights-dialog.png) Insights dialog: a page's full status history. |
+
+## How it works
+
+Submitting a URL only creates a row and returns immediately; the actual
+fetch runs on a Celery worker, so a slow site can't block the request or
+starve other submissions:
+
+```mermaid
+sequenceDiagram
+    participant U as Browser
+    participant A as Django API
+    participant D as PostgreSQL
+    participant R as Redis
+    participant W as Celery worker
+    participant S as Target site
+
+    U->>A: POST /api/v1/pages/ {url}
+    A->>D: create Page (pending)
+    A->>R: enqueue scrape task
+    A-->>U: 201 {id, status: pending}
+    W->>R: pick up task
+    W->>D: mark in_progress
+    W->>S: GET (SSRF-checked, redirects capped)
+    S-->>W: HTML
+    W->>D: replace links, mark success/failed
+    U->>A: GET /api/v1/pages/ (polling)
+    A-->>U: current status per page
+```
+
+Every page moves through the same five states, and every arrow is a guarded
+conditional update (only applied if the row is still in the expected
+starting state) rather than a blind write, so a cancel request and a
+worker finishing at the same instant can't overwrite each other:
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending: create
+    pending --> in_progress: worker picks up
+    pending --> cancelled: cancel
+    in_progress --> cancelled: cancel
+    in_progress --> success: scrape OK
+    in_progress --> failed: scrape error
+    success --> pending: rescrape
+    failed --> pending: rescrape
+    cancelled --> pending: rescrape
+```
+
+A few other non-obvious decisions baked into the backend:
+- **SSRF protection**: before every request (including each redirect hop),
+  the target hostname is resolved and rejected if it points at a
+  private/loopback/link-local/reserved IP. Redirects are capped at 3 hops.
+- **Duplicate detection**: URLs are normalized (scheme/host lowercased,
+  default port and trailing slash stripped, fragment dropped) and stored
+  with a unique constraint, so submitting the same URL twice returns the
+  existing page (`409`) instead of scraping it again. This includes the
+  race where two near-simultaneous submissions both pass the initial
+  duplicate check.
+- **XSS safety**: a scraped link's inner HTML (`name_html`) is rendered as
+  plain text on the frontend, never injected as markup, since it comes from
+  an arbitrary third-party page.
+
 ## Tools used
 
 **Backend**
@@ -41,7 +108,8 @@ docker compose up -d
 ```
 
 This boots PostgreSQL, Redis, the Django API, the Celery worker, and the
-frontend, running migrations on backend startup — no other manual steps.
+frontend, running migrations on backend startup. No other manual steps
+needed.
 
 | Service    | URL                        |
 |------------|----------------------------|
