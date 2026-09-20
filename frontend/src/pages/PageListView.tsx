@@ -1,7 +1,9 @@
+import { Ban, History } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { cancelPage, fetchPages } from '../api'
 import { AddPageForm } from '../components/AddPageForm'
+import { IconButton } from '../components/IconButton'
 import { InsightsDialog } from '../components/InsightsDialog'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
@@ -75,23 +77,20 @@ export function PageListView() {
               </td>
               <td className="py-3 text-right font-mono">{p.links_count}</td>
               <td className="py-3 pl-4 text-right">
-                <div className="flex justify-end gap-3">
+                <div className="flex justify-end gap-1">
                   {(p.status === 'pending' || p.status === 'in_progress') && (
-                    <button
-                      type="button"
+                    <IconButton
+                      icon={Ban}
+                      label="Cancel"
+                      variant="danger"
                       onClick={() => handleCancel(p.id)}
-                      className="text-sm text-status-failed-fg hover:underline"
-                    >
-                      Cancel
-                    </button>
+                    />
                   )}
-                  <button
-                    type="button"
+                  <IconButton
+                    icon={History}
+                    label="Insights"
                     onClick={() => setInsightsPageId(p.id)}
-                    className="text-sm text-accent hover:underline"
-                  >
-                    Insights
-                  </button>
+                  />
                 </div>
               </td>
             </tr>
