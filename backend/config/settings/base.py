@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "rest_framework",
+    "drf_spectacular",
     "scraper",
 ]
 
@@ -73,6 +74,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_PAGINATION_CLASS": "scraper.pagination.DefaultPagination",
     "PAGE_SIZE": 10,
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
+    # Every endpoint is open (no accounts in this app) — don't wire up DRF's
+    # default auth classes, which would show a misleading padlock on every
+    # operation in the generated API docs.
+    "DEFAULT_AUTHENTICATION_CLASSES": [],
+}
+
+SPECTACULAR_SETTINGS = {
+    "TITLE": "Web Scrapper API",
+    "DESCRIPTION": "Submit URLs to scrape and track their links and status.",
+    "VERSION": "1.0.0",
+    "SERVE_INCLUDE_SCHEMA": False,
+    "ENUM_NAME_OVERRIDES": {
+        "StatusEnum": "scraper.models.Status.choices",
+    },
 }
 
 REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/0")

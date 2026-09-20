@@ -2,6 +2,7 @@ from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_spectacular.utils import OpenApiExample, OpenApiResponse, extend_schema
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -11,7 +12,10 @@ from scraper.models import Page, PageStatusEvent, Status
 from scraper.normalization import normalize_url
 from scraper.pagination import DefaultPagination
 from scraper.serializers import (
+    DuplicatePageSerializer,
+    ErrorDetailSerializer,
     LinkSerializer,
+    PageCreatedSerializer,
     PageCreateSerializer,
     PageDetailSerializer,
     PageListSerializer,
@@ -19,6 +23,8 @@ from scraper.serializers import (
     PageSummarySerializer,
 )
 from scraper.tasks import enqueue_scrape
+
+NOT_FOUND_RESPONSE = OpenApiResponse(ErrorDetailSerializer, description="No page with this id.")
 
 
 def _find_existing_page(normalized_url):
@@ -38,13 +44,30 @@ def _duplicate_response(existing_page):
 
 
 class PageListCreateView(APIView):
+    pagination_class = DefaultPagination
+
+    @extend_schema(
+        operation_id="list_pages",
+        summary="List scraped pages",
+        responses=PageListSerializer(many=True),
+    )
     def get(self, request):
         queryset = Page.objects.annotate(links_count=Count("links")).order_by("-created_at", "id")
-        paginator = DefaultPagination()
+        paginator = self.pagination_class()
         page = paginator.paginate_queryset(queryset, request)
         serializer = PageListSerializer(page, many=True)
         return paginator.get_paginated_response(serializer.data)
 
+    @extend_schema(
+        operation_id="create_page",
+        summary="Submit a URL to scrape",
+        request=PageCreateSerializer,
+        responses={
+            201: PageCreatedSerializer,
+            400: OpenApiResponse(description="Invalid URL."),
+            409: OpenApiResponse(DuplicatePageSerializer, description="URL already scraped."),
+        },
+    )
     def post(self, request):
         serializer = PageCreateSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -65,13 +88,20 @@ class PageListCreateView(APIView):
         except IntegrityError:
             return _duplicate_response(_find_existing_page(normalized))
 
-        return Response(
-            {"id": page.id, "url": page.url, "status": page.status},
-            status=status.HTTP_201_CREATED,
-        )
+        return Response(PageCreatedSerializer(page).data, status=status.HTTP_201_CREATED)
 
 
 class PageRescrapeView(APIView):
+    @extend_schema(
+        operation_id="rescrape_page",
+        summary="Rescrape a page",
+        request=None,
+        responses={
+            202: OpenApiResponse(description="Rescrape enqueued."),
+            404: NOT_FOUND_RESPONSE,
+            409: OpenApiResponse(ErrorDetailSerializer, description="Page is already in progress."),
+        },
+    )
     def post(self, request, pk):
         page = get_object_or_404(Page, pk=pk)
         previous_status = page.status
@@ -102,6 +132,16 @@ class PageRescrapeView(APIView):
 
 
 class PageCancelView(APIView):
+    @extend_schema(
+        operation_id="cancel_page",
+        summary="Cancel a page",
+        request=None,
+        responses={
+            202: OpenApiResponse(description="Page cancelled."),
+            404: NOT_FOUND_RESPONSE,
+            409: OpenApiResponse(ErrorDetailSerializer, description="Page has already finished."),
+        },
+    )
     def post(self, request, pk):
         page = get_object_or_404(Page, pk=pk)
         previous_status = page.status
@@ -130,11 +170,21 @@ def _revoke_task(pk):
 
 
 class PageDetailView(APIView):
+    @extend_schema(
+        operation_id="retrieve_page",
+        summary="Get a page",
+        responses={200: PageDetailSerializer, 404: NOT_FOUND_RESPONSE},
+    )
     def get(self, request, pk):
         page = get_object_or_404(Page, pk=pk)
         serializer = PageDetailSerializer(page)
         return Response(serializer.data)
 
+    @extend_schema(
+        operation_id="delete_page",
+        summary="Delete a page",
+        responses={204: None, 404: NOT_FOUND_RESPONSE},
+    )
     def delete(self, request, pk):
         page = get_object_or_404(Page, pk=pk)
         page.delete()
@@ -142,15 +192,59 @@ class PageDetailView(APIView):
 
 
 class PageLinksView(APIView):
+    pagination_class = DefaultPagination
+
+    @extend_schema(
+        operation_id="list_page_links",
+        summary="List a page's links",
+        responses={200: LinkSerializer(many=True), 404: NOT_FOUND_RESPONSE},
+    )
     def get(self, request, pk):
         page = get_object_or_404(Page, pk=pk)
-        paginator = DefaultPagination()
+        paginator = self.pagination_class()
         paginated = paginator.paginate_queryset(page.links.all(), request)
         serializer = LinkSerializer(paginated, many=True)
         return paginator.get_paginated_response(serializer.data)
 
 
 class PageStatusEventsView(APIView):
+    @extend_schema(
+        operation_id="list_page_status_events",
+        summary="List a page's status history",
+        responses={200: PageStatusEventSerializer(many=True), 404: NOT_FOUND_RESPONSE},
+        examples=[
+            OpenApiExample(
+                "Page created",
+                response_only=True,
+                value={
+                    "from_status": None,
+                    "to_status": "pending",
+                    "occurred_at": "2026-09-20T06:59:56.360717Z",
+                    "error_message": None,
+                },
+            ),
+            OpenApiExample(
+                "Scrape finished successfully",
+                response_only=True,
+                value={
+                    "from_status": "in_progress",
+                    "to_status": "success",
+                    "occurred_at": "2026-09-20T06:59:57.006066Z",
+                    "error_message": None,
+                },
+            ),
+            OpenApiExample(
+                "Scrape failed",
+                response_only=True,
+                value={
+                    "from_status": "in_progress",
+                    "to_status": "failed",
+                    "occurred_at": "2026-09-20T06:59:57.006066Z",
+                    "error_message": "Could not connect to the host.",
+                },
+            ),
+        ],
+    )
     def get(self, request, pk):
         page = get_object_or_404(Page, pk=pk)
         serializer = PageStatusEventSerializer(page.status_events.all(), many=True)

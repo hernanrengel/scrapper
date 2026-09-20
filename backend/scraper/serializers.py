@@ -8,12 +8,27 @@ class PageCreateSerializer(serializers.Serializer):
     url = serializers.CharField(validators=[URLValidator(schemes=["http", "https"])])
 
 
+class PageCreatedSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Page
+        fields = ["id", "url", "status"]
+
+
+class ErrorDetailSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+
+
 class PageSummarySerializer(serializers.ModelSerializer):
     links_count = serializers.IntegerField(read_only=True)
 
     class Meta:
         model = Page
         fields = ["id", "title", "status", "links_count"]
+
+
+class DuplicatePageSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    existing_page = PageSummarySerializer()
 
 
 class PageListSerializer(serializers.ModelSerializer):
