@@ -135,6 +135,11 @@ class PageDetailView(APIView):
         serializer = PageDetailSerializer(page)
         return Response(serializer.data)
 
+    def delete(self, request, pk):
+        page = get_object_or_404(Page, pk=pk)
+        page.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 
 class PageLinksView(APIView):
     def get(self, request, pk):
