@@ -15,3 +15,10 @@ export interface Paginated<T> {
   previous: string | null
   results: T[]
 }
+
+export interface PageSummary {
+  id: string
+  title: string | null
+  status: PageStatus
+  links_count: number
+}

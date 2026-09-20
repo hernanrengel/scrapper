@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchPages } from '../api'
+import { AddPageForm } from '../components/AddPageForm'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Page, Paginated } from '../types'
@@ -13,32 +14,35 @@ export function PageListView() {
   const [data, setData] = useState<Paginated<Page> | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  const load = useCallback(async (targetPage: number) => {
+    try {
+      const result = await fetchPages(targetPage)
+      setData(result)
+      setError(null)
+    } catch {
+      setError('Could not load pages. Retrying…')
+    }
+  }, [])
+
   useEffect(() => {
-    let cancelled = false
+    // oxlint-disable-next-line react/set-state-in-effect -- fetching on mount/page-change is the documented React pattern, not an accidental cascade
+    load(page)
+    const interval = setInterval(() => load(page), POLL_INTERVAL_MS)
+    return () => clearInterval(interval)
+  }, [page, load])
 
-    async function load() {
-      try {
-        const result = await fetchPages(page)
-        if (!cancelled) {
-          setData(result)
-          setError(null)
-        }
-      } catch {
-        if (!cancelled) setError('Could not load pages. Retrying…')
-      }
-    }
-
-    load()
-    const interval = setInterval(load, POLL_INTERVAL_MS)
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [page])
+  function handleCreated() {
+    setPage(1)
+    load(1)
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="font-mono text-lg font-medium tracking-tight">Web Scrapper</h1>
+
+      <div className="mt-6">
+        <AddPageForm onCreated={handleCreated} />
+      </div>
 
       {error && <p className="mt-4 text-sm text-status-failed-fg">{error}</p>}
 
