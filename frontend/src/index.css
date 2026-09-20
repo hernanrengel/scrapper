@@ -1,1 +1,55 @@
 @import "tailwindcss";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+
+@theme {
+  --color-ink: #14171c;
+  --color-paper: #f7f6f3;
+  --color-surface: #ffffff;
+  --color-line: #e2e0d9;
+  --color-accent: #2a6f6f;
+  --color-accent-fg: #ffffff;
+  --color-muted: #6b6b63;
+
+  --color-status-pending: #edebe4;
+  --color-status-pending-fg: #6b6b63;
+  --color-status-progress: #fbebd2;
+  --color-status-progress-fg: #96650f;
+  --color-status-success: #e1ede5;
+  --color-status-success-fg: #2f6b45;
+  --color-status-failed: #f5e3e0;
+  --color-status-failed-fg: #a3402f;
+  --color-status-cancelled: #ede9f5;
+  --color-status-cancelled-fg: #6b5a96;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+
+body {
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+}
+
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.status-dot-pulse {
+  animation: status-pulse 1.6s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot-pulse {
+    animation: none;
+  }
+}
