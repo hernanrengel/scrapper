@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { fetchPages } from '../api'
+import { cancelPage, fetchPages } from '../api'
 import { AddPageForm } from '../components/AddPageForm'
 import { InsightsDialog } from '../components/InsightsDialog'
 import { Pagination } from '../components/Pagination'
@@ -38,6 +38,11 @@ export function PageListView() {
     load(1)
   }
 
+  async function handleCancel(id: string) {
+    await cancelPage(id)
+    load(page)
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="font-mono text-lg font-medium tracking-tight">Web Scrapper</h1>
@@ -70,13 +75,24 @@ export function PageListView() {
               </td>
               <td className="py-3 text-right font-mono">{p.links_count}</td>
               <td className="py-3 pl-4 text-right">
-                <button
-                  type="button"
-                  onClick={() => setInsightsPageId(p.id)}
-                  className="text-sm text-accent hover:underline"
-                >
-                  Insights
-                </button>
+                <div className="flex justify-end gap-3">
+                  {(p.status === 'pending' || p.status === 'in_progress') && (
+                    <button
+                      type="button"
+                      onClick={() => handleCancel(p.id)}
+                      className="text-sm text-status-failed-fg hover:underline"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setInsightsPageId(p.id)}
+                    className="text-sm text-accent hover:underline"
+                  >
+                    Insights
+                  </button>
+                </div>
               </td>
             </tr>
           ))}

@@ -26,6 +26,11 @@ export function fetchStatusEvents(id: string): Promise<StatusEvent[]> {
   return request(`/pages/${id}/status-events/`)
 }
 
+export async function cancelPage(id: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/pages/${id}/cancel/`, { method: 'POST' })
+  return response.ok
+}
+
 export type CreatePageResult =
   | { kind: 'created' }
   | { kind: 'duplicate'; existingPage: PageSummary }
