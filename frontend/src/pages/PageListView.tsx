@@ -1,7 +1,7 @@
-import { Ban, History } from 'lucide-react'
+import { Ban, History, RotateCw, Trash2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { cancelPage, fetchPages } from '../api'
+import { cancelPage, deletePage, fetchPages, rescrapePage } from '../api'
 import { AddPageForm } from '../components/AddPageForm'
 import { IconButton } from '../components/IconButton'
 import { InsightsDialog } from '../components/InsightsDialog'
@@ -45,6 +45,17 @@ export function PageListView() {
     load(page)
   }
 
+  async function handleRescrape(id: string) {
+    await rescrapePage(id)
+    load(page)
+  }
+
+  async function handleDelete(id: string) {
+    if (!window.confirm('Delete this page and its links? This cannot be undone.')) return
+    await deletePage(id)
+    load(page)
+  }
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="font-mono text-lg font-medium tracking-tight">Web Scrapper</h1>
@@ -85,6 +96,23 @@ export function PageListView() {
                       variant="danger"
                       onClick={() => handleCancel(p.id)}
                     />
+                  )}
+                  {(p.status === 'success' ||
+                    p.status === 'failed' ||
+                    p.status === 'cancelled') && (
+                    <>
+                      <IconButton
+                        icon={RotateCw}
+                        label="Rescrape"
+                        onClick={() => handleRescrape(p.id)}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label="Delete"
+                        variant="danger"
+                        onClick={() => handleDelete(p.id)}
+                      />
+                    </>
                   )}
                   <IconButton
                     icon={History}

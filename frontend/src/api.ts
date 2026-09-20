@@ -31,6 +31,16 @@ export async function cancelPage(id: string): Promise<boolean> {
   return response.ok
 }
 
+export async function rescrapePage(id: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/pages/${id}/rescrape/`, { method: 'POST' })
+  return response.ok
+}
+
+export async function deletePage(id: string): Promise<boolean> {
+  const response = await fetch(`${API_BASE}/pages/${id}/`, { method: 'DELETE' })
+  return response.ok
+}
+
 export type CreatePageResult =
   | { kind: 'created' }
   | { kind: 'duplicate'; existingPage: PageSummary }
