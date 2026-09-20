@@ -18,7 +18,7 @@ def client():
 def test_create_page_happy_path(client, django_capture_on_commit_callbacks):
     scrape = patch.multiple(
         "scraper.tasks",
-        fetch_html=lambda url: (url, b"<html></html>"),
+        fetch_html=lambda url: (url, "<html></html>"),
         parse_page=lambda base_url, content: ("Example", []),
     )
     with scrape, django_capture_on_commit_callbacks(execute=True):

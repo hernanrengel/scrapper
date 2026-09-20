@@ -25,7 +25,23 @@ def test_fetch_html_happy_path():
     final_url, content = fetch_html("https://example.com/")
 
     assert final_url == "https://example.com/"
-    assert b"<title>Hi</title>" in content
+    assert "<title>Hi</title>" in content
+
+
+@responses.activate
+def test_fetch_html_decodes_using_the_header_declared_charset():
+    body = "<html><body>Búsqueda avanzada</body></html>".encode("iso-8859-1")
+    responses.add(
+        responses.GET,
+        "https://example.com/",
+        body=body,
+        status=200,
+        content_type="text/html; charset=ISO-8859-1",
+    )
+
+    _, content = fetch_html("https://example.com/")
+
+    assert "Búsqueda avanzada" in content
 
 
 @responses.activate

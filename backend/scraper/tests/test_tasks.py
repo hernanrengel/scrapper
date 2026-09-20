@@ -15,7 +15,7 @@ def _mock_scrape(title="Example", links=None):
     links = links if links is not None else [{"href": "https://example.com/a", "name_html": "A"}]
     return patch.multiple(
         "scraper.tasks",
-        fetch_html=lambda url: (url, b"<html></html>"),
+        fetch_html=lambda url: (url, "<html></html>"),
         parse_page=lambda base_url, content: (title, links),
     )
 

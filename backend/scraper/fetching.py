@@ -1,6 +1,7 @@
 from urllib.parse import urljoin
 
 import requests
+from charset_normalizer import detect
 
 from scraper.ssrf import assert_host_is_safe
 
@@ -53,7 +54,7 @@ def fetch_html(url):
             raise FetchError(f"Unsupported content type: {content_type or '(missing)'}")
 
         content = _read_capped(response)
-        return current_url, content
+        return current_url, _decode(content, response)
 
 
 def _read_capped(response):
@@ -66,3 +67,25 @@ def _read_capped(response):
             raise FetchError("Response exceeded the maximum allowed size")
         chunks.append(chunk)
     return b"".join(chunks)
+
+
+def _decode(content, response):
+    # `BeautifulSoup`/`lxml` guess encoding from the document body only, and
+    # guess wrong for pages that declare a non-UTF-8 charset in the HTTP
+    # header but have no <meta charset> tag to confirm it (real example:
+    # google.com sends `charset=ISO-8859-1` with no body hint at all — lxml
+    # defaults to UTF-8 and corrupts every non-ASCII character). Decoding
+    # with `requests`' own header-derived encoding first avoids that guess.
+    # `response.apparent_encoding` isn't usable here — it re-reads
+    # `response.content`, which is already consumed by our own streaming
+    # read — so byte-sniffing falls back to `charset_normalizer` directly
+    # on the bytes we already have.
+    sniffed = detect(content).get("encoding")
+    for encoding in (response.encoding, sniffed):
+        if not encoding:
+            continue
+        try:
+            return content.decode(encoding)
+        except (LookupError, UnicodeDecodeError):
+            continue
+    return content.decode("utf-8", errors="replace")
