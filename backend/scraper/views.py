@@ -1,10 +1,12 @@
 from django.db import IntegrityError, transaction
 from django.db.models import Count
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from config.celery import app as celery_app
 from scraper.models import Page, PageStatusEvent, Status
 from scraper.normalization import normalize_url
 from scraper.pagination import DefaultPagination
@@ -97,6 +99,34 @@ class PageRescrapeView(APIView):
             transaction.on_commit(lambda: enqueue_scrape(pk))
 
         return Response(status=status.HTTP_202_ACCEPTED)
+
+
+class PageCancelView(APIView):
+    def post(self, request, pk):
+        page = get_object_or_404(Page, pk=pk)
+        previous_status = page.status
+
+        with transaction.atomic():
+            updated = Page.objects.filter(
+                id=pk, status__in=[Status.PENDING, Status.IN_PROGRESS]
+            ).update(status=Status.CANCELLED, finished_at=timezone.now())
+            if not updated:
+                return Response(
+                    {"detail": "This page has already finished."},
+                    status=status.HTTP_409_CONFLICT,
+                )
+            PageStatusEvent.objects.create(
+                page_id=pk, from_status=previous_status, to_status=Status.CANCELLED
+            )
+            transaction.on_commit(lambda: _revoke_task(pk))
+
+        return Response(status=status.HTTP_202_ACCEPTED)
+
+
+def _revoke_task(pk):
+    task_id = Page.objects.filter(id=pk).values_list("celery_task_id", flat=True).first()
+    if task_id:
+        celery_app.control.revoke(task_id, terminate=True, signal="SIGTERM")
 
 
 class PageDetailView(APIView):

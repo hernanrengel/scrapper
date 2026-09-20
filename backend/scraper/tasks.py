@@ -15,7 +15,7 @@ SOFT_TIME_LIMIT = 90
 TIME_LIMIT = 100
 
 
-@shared_task(soft_time_limit=SOFT_TIME_LIMIT, time_limit=TIME_LIMIT)
+@shared_task(soft_time_limit=SOFT_TIME_LIMIT, time_limit=TIME_LIMIT, ignore_result=True,)
 def scrape_page(page_id):
     updated = Page.objects.filter(id=page_id, status=Status.PENDING).update(
         status=Status.IN_PROGRESS, started_at=timezone.now()

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from scraper.views import (
+    PageCancelView,
     PageDetailView,
     PageLinksView,
     PageListCreateView,
@@ -21,5 +22,10 @@ urlpatterns = [
         "pages/<uuid:pk>/rescrape/",
         PageRescrapeView.as_view(),
         name="page-rescrape",
+    ),
+    path(
+        "pages/<uuid:pk>/cancel/",
+        PageCancelView.as_view(),
+        name="page-cancel",
     ),
 ]
