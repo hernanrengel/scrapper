@@ -22,3 +22,20 @@ export interface PageSummary {
   status: PageStatus
   links_count: number
 }
+
+export interface PageDetail {
+  id: string
+  url: string
+  title: string | null
+  status: PageStatus
+  error_message: string | null
+  started_at: string | null
+  finished_at: string | null
+  created_at: string
+}
+
+export interface Link {
+  id: string
+  href: string
+  name_html: string
+}
