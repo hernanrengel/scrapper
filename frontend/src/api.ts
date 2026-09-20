@@ -1,4 +1,4 @@
-import type { Link, Page, PageDetail, PageSummary, Paginated } from './types'
+import type { Link, Page, PageDetail, PageSummary, Paginated, StatusEvent } from './types'
 
 const API_BASE = '/api/v1'
 
@@ -20,6 +20,10 @@ export function fetchPage(id: string): Promise<PageDetail> {
 
 export function fetchLinks(id: string, page: number): Promise<Paginated<Link>> {
   return request(`/pages/${id}/links/?page=${page}`)
+}
+
+export function fetchStatusEvents(id: string): Promise<StatusEvent[]> {
+  return request(`/pages/${id}/status-events/`)
 }
 
 export type CreatePageResult =

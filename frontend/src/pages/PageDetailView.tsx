@@ -55,7 +55,7 @@ export function PageDetailView() {
         <p className="mt-2 text-sm text-status-failed-fg">{page.error_message}</p>
       )}
 
-      <table className="mt-6 w-full border-collapse text-sm">
+      <table className="mt-6 w-full border-collapse text-sm [&_td]:align-middle [&_th]:align-middle">
         <thead>
           <tr className="border-b border-line text-left text-muted">
             <th className="py-2 font-medium">Name</th>

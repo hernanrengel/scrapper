@@ -39,3 +39,10 @@ export interface Link {
   href: string
   name_html: string
 }
+
+export interface StatusEvent {
+  from_status: PageStatus | null
+  to_status: PageStatus
+  occurred_at: string
+  error_message: string | null
+}

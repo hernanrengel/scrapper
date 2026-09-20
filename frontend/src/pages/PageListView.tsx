@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { fetchPages } from '../api'
 import { AddPageForm } from '../components/AddPageForm'
+import { InsightsDialog } from '../components/InsightsDialog'
 import { Pagination } from '../components/Pagination'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Page, Paginated } from '../types'
@@ -13,6 +14,7 @@ export function PageListView() {
   const [page, setPage] = useState(1)
   const [data, setData] = useState<Paginated<Page> | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [insightsPageId, setInsightsPageId] = useState<string | null>(null)
 
   const load = useCallback(async (targetPage: number) => {
     try {
@@ -46,12 +48,13 @@ export function PageListView() {
 
       {error && <p className="mt-4 text-sm text-status-failed-fg">{error}</p>}
 
-      <table className="mt-6 w-full border-collapse text-sm">
+      <table className="mt-6 w-full border-collapse text-sm [&_td]:align-middle [&_th]:align-middle">
         <thead>
           <tr className="border-b border-line text-left text-muted">
             <th className="py-2 font-medium">Name</th>
             <th className="py-2 font-medium">Status</th>
-            <th className="py-2 pr-0 text-right font-medium">Total links</th>
+            <th className="py-2 text-right font-medium">Total links</th>
+            <th className="py-2 pr-0 text-right font-medium">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -66,11 +69,20 @@ export function PageListView() {
                 <StatusBadge status={p.status} />
               </td>
               <td className="py-3 text-right font-mono">{p.links_count}</td>
+              <td className="py-3 pl-4 text-right">
+                <button
+                  type="button"
+                  onClick={() => setInsightsPageId(p.id)}
+                  className="text-sm text-accent hover:underline"
+                >
+                  Insights
+                </button>
+              </td>
             </tr>
           ))}
           {data && data.results.length === 0 && (
             <tr>
-              <td colSpan={3} className="py-8 text-center text-muted">
+              <td colSpan={4} className="py-8 text-center text-muted">
                 No pages scraped yet.
               </td>
             </tr>
@@ -82,6 +94,10 @@ export function PageListView() {
         <div className="mt-6">
           <Pagination page={page} count={data.count} pageSize={PAGE_SIZE} onPageChange={setPage} />
         </div>
+      )}
+
+      {insightsPageId && (
+        <InsightsDialog pageId={insightsPageId} onClose={() => setInsightsPageId(null)} />
       )}
     </div>
   )
